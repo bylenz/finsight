@@ -4,6 +4,7 @@ Builds a monthly summary scoped to the authenticated user:
 - total spent + expense count
 - breakdown by category (only categories with non-zero spend, sorted desc)
 - breakdown by ISO week (Monday-anchored), bounded to the target month
+- household budgets with current-month spend (when month == current month)
 
 Performance contract (NFR-01): two grouped SQL queries — no per-category
 N+1 fan-out. Week bucketing is done in Python after a single SELECT to
@@ -21,6 +22,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from finsight.auth.models import User
+from finsight.budgets import service as budget_service
+from finsight.budgets.models import Budget
 from finsight.categories.models import Category
 from finsight.config import settings
 from finsight.dashboard.schemas import (
@@ -152,11 +155,50 @@ async def _by_week(
     return _build_week_buckets([(r[0], Decimal(r[1])) for r in rows], month_start, month_end)
 
 
+async def _budgets_summary(
+    session: AsyncSession,
+    user: User,
+    *,
+    now: datetime,
+) -> list[BudgetSummary]:
+    """Reuse ``budgets.service.compute_budget_spend`` (no duplication).
+
+    Returns every budget in the user's household with current-month spend.
+    """
+    household = await budget_service._resolve_user_household(session, user)
+    stmt = (
+        select(Budget, Category.name)
+        .join(Category, Category.id == Budget.category_id, isouter=True)
+        .where(Budget.household_id == household.id)
+        .order_by(Budget.id.asc())
+    )
+    rows = (await session.execute(stmt)).all()
+
+    summaries: list[BudgetSummary] = []
+    for budget, category_name in rows:
+        spent = await budget_service.compute_budget_spend(session, budget, now=now)
+        limit = Decimal(budget.amount)
+        percentage = float(spent / limit) if limit > 0 else 0.0
+        summaries.append(
+            BudgetSummary(
+                budget_id=budget.id,
+                category_id=budget.category_id,
+                category_name=category_name,
+                limit=limit,
+                spent=spent,
+                percentage=percentage,
+            )
+        )
+    return summaries
+
+
 async def build_dashboard(
     session: AsyncSession,
     user: User,
     year: int,
     month: int,
+    *,
+    include_budgets: bool = True,
 ) -> DashboardResponse:
     month_start, month_end = _month_window(year, month)
 
@@ -165,8 +207,13 @@ async def build_dashboard(
     )
     by_week = await _by_week(session, user, month_start, month_end)
 
-    # Household budget summaries are added in a follow-up commit.
     budgets: list[BudgetSummary] = []
+    if include_budgets:
+        # Budget spend is always evaluated against the *current* month (the
+        # only `period` we support). Anchor `now` inside the requested month
+        # so that historical dashboards still reflect that month's spend.
+        anchor = month_start + timedelta(days=1)
+        budgets = await _budgets_summary(session, user, now=anchor)
 
     return DashboardResponse(
         month=f"{year:04d}-{month:02d}",
