@@ -4,6 +4,7 @@ Alert.type values: stored as strings "80" and "100" (str enum). CHECK constraint
 restricts to exactly those two values.
 """
 
+import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -56,9 +57,7 @@ async def test_household_member_role_enum(db_session):
     user = await _make_user(db_session)
     hh = await _make_household(db_session, user)
 
-    member = HouseholdMember(
-        household_id=hh.id, user_id=user.id, role=HouseholdRole.OWNER.value
-    )
+    member = HouseholdMember(household_id=hh.id, user_id=user.id, role=HouseholdRole.OWNER.value)
     db_session.add(member)
     await db_session.commit()
 
@@ -120,7 +119,9 @@ async def test_category_household_scoped(db_session):
 
 
 async def _make_expense(db_session, **overrides) -> Expense:
-    user = overrides.pop("user", None) or await _make_user(db_session)
+    user = overrides.pop("user", None) or await _make_user(
+        db_session, email=f"u-{uuid.uuid4().hex[:8]}@example.com"
+    )
     hh = overrides.pop("household", None) or await _make_household(db_session, user)
     cat = overrides.pop("category", None)
     if cat is None:
@@ -249,21 +250,15 @@ async def test_alert_type_check_80_or_100(db_session):
     await db_session.flush()
 
     # 80 ok
-    db_session.add(
-        Alert(user_id=user.id, budget_id=budget.id, type="80", triggered_at=_utcnow())
-    )
+    db_session.add(Alert(user_id=user.id, budget_id=budget.id, type="80", triggered_at=_utcnow()))
     await db_session.commit()
 
     # 100 ok
-    db_session.add(
-        Alert(user_id=user.id, budget_id=budget.id, type="100", triggered_at=_utcnow())
-    )
+    db_session.add(Alert(user_id=user.id, budget_id=budget.id, type="100", triggered_at=_utcnow()))
     await db_session.commit()
 
     # 50 rejected
-    db_session.add(
-        Alert(user_id=user.id, budget_id=budget.id, type="50", triggered_at=_utcnow())
-    )
+    db_session.add(Alert(user_id=user.id, budget_id=budget.id, type="50", triggered_at=_utcnow()))
     with pytest.raises(IntegrityError):
         await db_session.commit()
     await db_session.rollback()
@@ -282,8 +277,10 @@ async def test_seed_default_categories_inserts_nine_global(db_session):
     await db_session.commit()
     assert inserted == 9
     rows = (
-        await db_session.execute(select(Category).where(Category.household_id.is_(None)))
-    ).scalars().all()
+        (await db_session.execute(select(Category).where(Category.household_id.is_(None))))
+        .scalars()
+        .all()
+    )
     assert len(rows) == 9
     names = {r.name for r in rows}
     assert {
@@ -309,8 +306,8 @@ async def test_seed_default_categories_is_idempotent(db_session):
     assert first == 9
     assert second == 0
     count = len(
-        (
-            await db_session.execute(select(Category).where(Category.household_id.is_(None)))
-        ).scalars().all()
+        (await db_session.execute(select(Category).where(Category.household_id.is_(None))))
+        .scalars()
+        .all()
     )
     assert count == 9
