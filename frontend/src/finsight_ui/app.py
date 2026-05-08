@@ -10,8 +10,7 @@ st.set_page_config(
 st.title("FinSight 💸")
 st.subheader("AI-powered personal finance for LATAM")
 
-st.markdown(
-    """
+st.markdown("""
     Welcome to **FinSight**. Use the sidebar to navigate:
 
     - **Login** — register or sign in
@@ -19,5 +18,4 @@ st.markdown(
     - **Expenses** — record and review
     - **Budgets** — set monthly caps and alerts
     - **Insights** — AI-generated weekly observations
-    """
-)
+    """)

@@ -82,11 +82,11 @@ See [`docs/BRANCHING.md`](docs/BRANCHING.md) for the full flow.
 
 ## Contributors
 
-| Role         | Member |
-| ------------ | ------ |
-| Tech Lead    | Lenin Chavez (@bylenz) |
-| Backend Dev  | _TBD_ |
-| Frontend Dev | _TBD_ |
+| Member                        | GitHub             |
+| ----------------------------- | ------------------ |
+| Lenin Chavez (Tech Lead)      | [@bylenz](https://github.com/bylenz)                   |
+| Jerimy Sandoval               | [@Jerimy2021](https://github.com/Jerimy2021)           |
+| Adrian Cespedes               | [@Adrian-Cespedes](https://github.com/Adrian-Cespedes) |
 
 ## License
 
