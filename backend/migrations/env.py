@@ -8,6 +8,9 @@ from sqlalchemy import pool
 from finsight.config import settings
 from finsight.db import Base
 
+# Import all models so they're registered on Base.metadata.
+import finsight.auth.models  # noqa: F401, E402
+
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)
 

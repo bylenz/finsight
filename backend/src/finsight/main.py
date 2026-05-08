@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from finsight import __version__
+from finsight.auth.router import router as auth_router
 
 
 def create_app() -> FastAPI:
@@ -14,6 +15,7 @@ def create_app() -> FastAPI:
     async def health() -> dict[str, str]:
         return {"status": "ok", "version": __version__}
 
+    app.include_router(auth_router)
     return app
 
 
