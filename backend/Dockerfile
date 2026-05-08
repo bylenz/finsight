@@ -14,9 +14,11 @@ WORKDIR /app
 
 COPY pyproject.toml /app/pyproject.toml
 COPY src /app/src
+COPY alembic.ini /app/alembic.ini
+COPY migrations /app/migrations
 
 RUN uv pip install --system -e .
 
 EXPOSE 8000
 
-CMD ["uvicorn", "finsight.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "alembic upgrade head && uvicorn finsight.main:app --host 0.0.0.0 --port 8000"]
