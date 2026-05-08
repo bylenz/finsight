@@ -46,6 +46,7 @@ addopts = "-q --strict-markers"
 [tool.coverage.run]
 source = ["backend/src/finsight"]
 omit = ["*/migrations/*", "*/tests/*"]
+concurrency = ["greenlet", "thread"]
 
 [tool.coverage.report]
 fail_under = 80
