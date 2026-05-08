@@ -5,11 +5,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from finsight.auth.models import User
-from finsight.categories.models import Category
 from finsight.categories.service import seed_default_categories
 from finsight.expenses.models import Expense
 from finsight.expenses.schemas import ExpenseCreate, ExpenseUpdate
 from finsight.households.models import Household, HouseholdMember, HouseholdRole
+from finsight.insights import categorizer
 
 
 class ExpenseNotFoundError(Exception):
@@ -44,26 +44,15 @@ async def _ensure_personal_household(session: AsyncSession, user: User) -> House
     return hh
 
 
-async def _default_other_category_id(session: AsyncSession) -> int:
-    """Return id of the global "Other" category, seeding defaults if missing."""
-    cat_id = await session.scalar(
-        select(Category.id).where(Category.household_id.is_(None), Category.name == "Other")
-    )
-    if cat_id is not None:
-        return cat_id
-    await seed_default_categories(session)
-    cat_id = await session.scalar(
-        select(Category.id).where(Category.household_id.is_(None), Category.name == "Other")
-    )
-    assert cat_id is not None  # seed guarantees presence
-    return cat_id
-
-
 async def create_expense(session: AsyncSession, user: User, payload: ExpenseCreate) -> Expense:
     household = await _ensure_personal_household(session, user)
     category_id = payload.category_id
     if category_id is None:
-        category_id = await _default_other_category_id(session)
+        # Ensure defaults exist so the categorizer (and its Other fallback)
+        # always has something to choose from.
+        await seed_default_categories(session)
+        available = await categorizer.load_available_categories(session, household.id)
+        category_id = await categorizer.categorize(payload.description, available, session)
 
     # amount_base mirrors amount until multi-currency conversion lands.
     amount_base: Decimal = payload.amount
