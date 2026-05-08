@@ -121,6 +121,82 @@ async def test_categorize_returns_cached_value_on_hit_without_calling_llm(
     assert create_mock.await_count == 1  # second call hit cache
 
 
+async def test_categorize_uses_model_name_from_settings(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The LLM call should pass settings.llm_model — proves provider-swap works."""
+    from finsight.insights import categorizer
+
+    cats = await _seed_and_get_categories(db_session)
+    food = next(c for c in cats if c.name == "Food")
+
+    create_mock = _install_fake_client(monkeypatch, str(food.id))
+    monkeypatch.setattr("finsight.insights.categorizer.settings.llm_model", "glm-4.5-air")
+
+    await categorizer.categorize("almuerzo", cats, db_session)
+
+    assert create_mock.await_count == 1
+    kwargs = create_mock.await_args.kwargs
+    assert kwargs["model"] == "glm-4.5-air"
+
+
+async def test_categorize_passes_base_url_to_anthropic_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """settings.anthropic_base_url is forwarded to AsyncAnthropic when set."""
+    from finsight.insights import categorizer
+
+    captured: dict[str, Any] = {}
+
+    class _FakeAsyncAnthropic:
+        def __init__(self, **kwargs: Any) -> None:
+            captured.update(kwargs)
+
+    fake_module = MagicMock()
+    fake_module.AsyncAnthropic = _FakeAsyncAnthropic
+    monkeypatch.setitem(__import__("sys").modules, "anthropic", fake_module)
+    monkeypatch.setattr(categorizer, "_api_key", lambda: "test-key")
+    monkeypatch.setattr(
+        "finsight.insights.categorizer.settings.anthropic_base_url",
+        "https://api.z.ai/api/anthropic",
+    )
+    categorizer._get_client.cache_clear()
+
+    categorizer._get_client()
+
+    assert captured == {
+        "api_key": "test-key",
+        "base_url": "https://api.z.ai/api/anthropic",
+    }
+    categorizer._get_client.cache_clear()  # don't leak the fake into other tests
+
+
+async def test_categorize_omits_base_url_when_not_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No base_url passed when anthropic_base_url is empty (official Anthropic)."""
+    from finsight.insights import categorizer
+
+    captured: dict[str, Any] = {}
+
+    class _FakeAsyncAnthropic:
+        def __init__(self, **kwargs: Any) -> None:
+            captured.update(kwargs)
+
+    fake_module = MagicMock()
+    fake_module.AsyncAnthropic = _FakeAsyncAnthropic
+    monkeypatch.setitem(__import__("sys").modules, "anthropic", fake_module)
+    monkeypatch.setattr(categorizer, "_api_key", lambda: "test-key")
+    monkeypatch.setattr("finsight.insights.categorizer.settings.anthropic_base_url", "")
+    categorizer._get_client.cache_clear()
+
+    categorizer._get_client()
+
+    assert "base_url" not in captured
+    assert captured["api_key"] == "test-key"
+    categorizer._get_client.cache_clear()
+
+
 async def test_categorize_normalizes_description_for_cache_lookup(
     db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ) -> None:
