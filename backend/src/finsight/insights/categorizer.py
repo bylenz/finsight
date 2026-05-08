@@ -28,8 +28,9 @@ from finsight.insights import cache_service
 
 logger = logging.getLogger(__name__)
 
-# Cheap, fast model — comfortably inside NFR-02 (< 2s p95).
-_MODEL = "claude-haiku-4-5-20251001"
+# Model id is read from settings so the same code talks to Anthropic Claude or
+# any Anthropic-protocol-compatible provider (e.g. Z.ai GLM at glm-4.5-air).
+# Default in config.py targets Claude Haiku — comfortably inside NFR-02 (< 2s p95).
 _MAX_TOKENS = 16  # we only need an integer back
 
 _SYSTEM_PROMPT = (
@@ -59,10 +60,17 @@ def _get_client():  # type: ignore[no-untyped-def]
 
     Imported lazily so the SDK is never touched in environments without a key
     (and so tests can monkeypatch this function before the SDK is imported).
+
+    Honors ``settings.anthropic_base_url`` so the same client can talk to a
+    drop-in Anthropic-compatible provider (e.g. Z.ai GLM at
+    https://api.z.ai/api/anthropic).
     """
     from anthropic import AsyncAnthropic
 
-    return AsyncAnthropic(api_key=_api_key())
+    kwargs: dict[str, str] = {"api_key": _api_key()}
+    if settings.anthropic_base_url:
+        kwargs["base_url"] = settings.anthropic_base_url
+    return AsyncAnthropic(**kwargs)
 
 
 def _build_user_message(description: str, categories: list[Category]) -> str:
@@ -97,7 +105,7 @@ async def _ask_llm(description: str, categories: list[Category]) -> str | None:
     try:
         client = _get_client()
         response = await client.messages.create(
-            model=_MODEL,
+            model=settings.llm_model,
             max_tokens=_MAX_TOKENS,
             system=_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": _build_user_message(description, categories)}],
