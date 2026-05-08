@@ -26,7 +26,7 @@ jobs:
         run: uv python install 3.12
 
       - name: Sync workspace
-        run: uv sync --all-extras
+        run: uv sync --all-packages --all-extras
 
       - name: Ruff
         run: uv run ruff check .
@@ -50,7 +50,7 @@ jobs:
         run: uv python install 3.12
 
       - name: Sync workspace
-        run: uv sync --all-extras
+        run: uv sync --all-packages --all-extras
 
       - name: Pytest with coverage
         run: uv run pytest --cov --cov-report=term-missing
