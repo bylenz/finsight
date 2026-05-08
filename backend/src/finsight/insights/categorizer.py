@@ -74,9 +74,7 @@ def _build_user_message(description: str, categories: list[Category]) -> str:
     )
 
 
-async def _other_category_id(
-    session: AsyncSession, available_categories: list[Category]
-) -> int:
+async def _other_category_id(session: AsyncSession, available_categories: list[Category]) -> int:
     """Find the global "Other" category, preferring the in-memory list."""
     for c in available_categories:
         if c.household_id is None and c.name == "Other":
@@ -106,7 +104,7 @@ async def _ask_llm(description: str, categories: list[Category]) -> str | None:
         )
         # response.content is a list of content blocks; the first is text.
         return response.content[0].text  # type: ignore[no-any-return]
-    except Exception as exc:  # noqa: BLE001 — categorizer NEVER raises
+    except Exception as exc:
         logger.warning("LLM categorization failed (%s) — using Other fallback", exc)
         return None
 
@@ -166,7 +164,7 @@ async def categorize(
 async def load_available_categories(
     session: AsyncSession, household_id: int | None
 ) -> list[Category]:
-    """Return global ∪ this-household categories — never any other household's."""
+    """Return global + this-household categories — never any other household's."""
     stmt = select(Category).where(
         (Category.household_id.is_(None)) | (Category.household_id == household_id)
     )

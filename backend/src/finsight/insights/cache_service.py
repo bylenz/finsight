@@ -15,15 +15,11 @@ from finsight.insights.models import CategoryCache
 async def get_cached_category(session: AsyncSession, normalized: str) -> int | None:
     """Return the cached category id for a normalized description, if any."""
     return await session.scalar(
-        select(CategoryCache.category_id).where(
-            CategoryCache.normalized_description == normalized
-        )
+        select(CategoryCache.category_id).where(CategoryCache.normalized_description == normalized)
     )
 
 
-async def set_cached_category(
-    session: AsyncSession, normalized: str, category_id: int
-) -> None:
+async def set_cached_category(session: AsyncSession, normalized: str, category_id: int) -> None:
     """Idempotently store a (normalized_description -> category_id) mapping.
 
     If a row already exists for this key we leave it as-is (first writer wins),
