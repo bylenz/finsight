@@ -15,7 +15,7 @@ Mint, YNAB, and Fintonic don't speak the local language: Yape, Plin, soles, RHP,
 | Backend     | FastAPI + SQLAlchemy 2.x async + Alembic  |
 | Frontend    | Streamlit                                 |
 | DB          | PostgreSQL 16                             |
-| LLM         | Anthropic Claude API                      |
+| LLM         | Anthropic Claude (or any Anthropic-protocol provider, e.g. Z.ai GLM) |
 | Auth        | JWT (`python-jose` + `passlib[bcrypt]`)   |
 | Pkg manager | `uv` (workspace)                          |
 | Container   | Docker Compose                            |
@@ -35,6 +35,22 @@ Services:
 - Backend API → http://localhost:8000/docs
 - Streamlit UI → http://localhost:8501
 - Adminer (DB) → http://localhost:8080
+
+## LLM provider
+
+The categorizer uses the official `anthropic` Python SDK, which natively supports
+Anthropic-compatible providers via a custom `base_url`. Switch providers by env vars
+only — no code change required:
+
+| Provider | `ANTHROPIC_BASE_URL` | `LLM_MODEL` (haiku-class) |
+|----------|----------------------|---------------------------|
+| Anthropic Claude (default) | _(leave blank)_ | `claude-haiku-4-5-20251001` |
+| Z.ai GLM | `https://api.z.ai/api/anthropic` | `glm-4.5-air` |
+
+The `ANTHROPIC_API_KEY` is reused for whichever provider you point at. The
+`Other`-category fallback in `insights/categorizer.py` covers every failure
+path (network, unparseable response, missing key, hallucinated id), so swapping
+providers never breaks expense creation.
 
 ## Local development
 
