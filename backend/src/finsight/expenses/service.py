@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
@@ -5,11 +6,14 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from finsight.auth.models import User
+from finsight.budgets import alerts as budget_alerts
 from finsight.categories.service import seed_default_categories
 from finsight.expenses.models import Expense
 from finsight.expenses.schemas import ExpenseCreate, ExpenseUpdate
 from finsight.households.models import Household, HouseholdMember, HouseholdRole
 from finsight.insights import categorizer
+
+logger = logging.getLogger(__name__)
 
 
 class ExpenseNotFoundError(Exception):
@@ -72,6 +76,13 @@ async def create_expense(session: AsyncSession, user: User, payload: ExpenseCrea
     session.add(expense)
     await session.commit()
     await session.refresh(expense)
+
+    # Alert evaluation must never block expense creation.
+    try:
+        await budget_alerts.evaluate_alerts_for_user(session, user)
+    except Exception as exc:
+        logger.warning("Budget alert evaluation failed for user %s: %s", user.id, exc)
+
     return expense
 
 
