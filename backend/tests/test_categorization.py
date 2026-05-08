@@ -13,13 +13,11 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from finsight.categories.models import Category
+from finsight.categories.service import seed_default_categories
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from finsight.categories.models import Category
-from finsight.categories.service import seed_default_categories
-
 
 # --- Helpers -----------------------------------------------------------------
 
@@ -69,7 +67,9 @@ async def _seed_and_get_categories(session: AsyncSession) -> list[Category]:
     return list(rows)
 
 
-async def _register_and_login(client: AsyncClient, email: str = "cat@example.com") -> dict[str, str]:
+async def _register_and_login(
+    client: AsyncClient, email: str = "cat@example.com"
+) -> dict[str, str]:
     pwd = "SuperSecret123"
     r = await client.post("/auth/register", json={"email": email, "password": pwd})
     assert r.status_code == 201, r.text
@@ -159,8 +159,9 @@ async def test_categorize_falls_back_to_other_when_llm_raises(
         chosen = await categorizer.categorize("Algo random", cats, db_session)
 
     assert chosen == other.id
-    assert any("fallback" in rec.message.lower() or "llm" in rec.message.lower()
-               for rec in caplog.records)
+    assert any(
+        "fallback" in rec.message.lower() or "llm" in rec.message.lower() for rec in caplog.records
+    )
 
 
 async def test_categorize_falls_back_to_other_when_llm_returns_unparseable(
@@ -227,8 +228,10 @@ async def test_cache_table_unique_on_normalized_description(
     db_session.add(CategoryCache(normalized_description="almuerzo", category_id=food_id))
     await db_session.commit()
 
+    from sqlalchemy.exc import IntegrityError
+
     db_session.add(CategoryCache(normalized_description="almuerzo", category_id=food_id))
-    with pytest.raises(Exception):  # IntegrityError from unique PK
+    with pytest.raises(IntegrityError):
         await db_session.commit()
     await db_session.rollback()
 
@@ -272,7 +275,6 @@ async def test_create_expense_with_no_category_calls_categorizer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """POST /expenses without category_id -> categorizer is invoked."""
-    from finsight.insights import categorizer
 
     # Pre-seed defaults so we can determine Food.id ahead of time
     await _seed_and_get_categories(db_session)
@@ -298,7 +300,6 @@ async def test_create_expense_with_explicit_category_skips_llm(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """FR-EXP-03 manual override: explicit category_id -> NO LLM call."""
-    from finsight.insights import categorizer
 
     await _seed_and_get_categories(db_session)
     transport_id = await db_session.scalar(
