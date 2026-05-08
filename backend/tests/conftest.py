@@ -2,6 +2,10 @@ from collections.abc import AsyncIterator
 
 # Import models so they register with Base.metadata before create_all.
 import finsight.auth.models  # noqa: F401
+import finsight.budgets.models  # noqa: F401
+import finsight.categories.models  # noqa: F401
+import finsight.expenses.models  # noqa: F401
+import finsight.households.models  # noqa: F401
 import pytest
 from finsight.db import Base, get_session
 from finsight.main import app
