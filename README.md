@@ -21,13 +21,21 @@ Mint, YNAB, and Fintonic don't speak the local language: Yape, Plin, soles, RHP,
 | Container   | Docker Compose                            |
 | CI          | GitHub Actions (ruff, black, pytest, cov) |
 
+## Prerequisites
+
+To run this project, you need:
+
+- **Docker & Docker Compose** (Required for containerized deployment)
+- **Git** (To clone the repository)
+- **Anthropic API Key** (or compatible GLM key for AI features)
+
 ## Quickstart
 
 ```bash
 git clone https://github.com/bylenz/finsight.git
 cd finsight
 cp env.example .env       # fill ANTHROPIC_API_KEY and JWT_SECRET
-docker compose up --build
+./run.sh                  # automation script
 ```
 
 Services:
@@ -47,10 +55,21 @@ only — no code change required:
 | Anthropic Claude (default) | _(leave blank)_ | `claude-haiku-4-5-20251001` |
 | Z.ai GLM | `https://api.z.ai/api/anthropic` | `glm-4.5-air` |
 
-The `ANTHROPIC_API_KEY` is reused for whichever provider you point at. The
-`Other`-category fallback in `insights/categorizer.py` covers every failure
-path (network, unparseable response, missing key, hallucinated id), so swapping
 providers never breaks expense creation.
+
+## Testing
+
+To run the automated tests inside the Docker container, use:
+
+```bash
+docker compose exec web pytest
+```
+
+If you are developing locally with `uv`:
+
+```bash
+uv run pytest --cov
+```
 
 ## Local development
 
