@@ -152,7 +152,8 @@ async def test_alerts_only_returns_callers_alerts(client: AsyncClient) -> None:
 
     a_resp = await client.get("/alerts", headers=a_headers)
     b_resp = await client.get("/alerts", headers=b_headers)
-    assert a_resp.status_code == 200 and b_resp.status_code == 200
+    assert a_resp.status_code == 200
+    assert b_resp.status_code == 200
     assert len(a_resp.json()) == 1
     assert b_resp.json() == []
 
