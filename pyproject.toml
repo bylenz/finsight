@@ -19,6 +19,8 @@ dev = [
     "ruff>=0.5",
     "black>=24.0",
     "pre-commit>=3.7",
+    "aiosqlite>=0.20",
+    "freezegun>=1.5",
 ]
 
 [tool.ruff]
@@ -28,7 +30,8 @@ extend-exclude = ["migrations"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM", "PT", "RUF"]
-ignore = ["E501"]
+# B008: Depends() / Query() in defaults is FastAPI's idiomatic dependency injection.
+ignore = ["E501", "B008"]
 
 [tool.black]
 line-length = 100
@@ -45,9 +48,7 @@ source = ["backend/src/finsight"]
 omit = ["*/migrations/*", "*/tests/*"]
 
 [tool.coverage.report]
-# Bootstrap baseline: 0%. Will be raised to 80 once feature/auth and feature/data-model land
-# (per PRD NFR-08, ≥80% coverage on domain modules).
-fail_under = 0
+fail_under = 80
 show_missing = true
 skip_covered = false
 exclude_lines = [
