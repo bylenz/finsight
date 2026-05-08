@@ -5,6 +5,7 @@ from finsight.auth.router import router as auth_router
 from finsight.budgets.router import alerts_router, budgets_router
 from finsight.dashboard.router import router as dashboard_router
 from finsight.expenses.router import router as expenses_router
+from finsight.exports.router import router as exports_router
 
 
 def create_app() -> FastAPI:
@@ -23,6 +24,7 @@ def create_app() -> FastAPI:
     app.include_router(budgets_router)
     app.include_router(alerts_router)
     app.include_router(dashboard_router)
+    app.include_router(exports_router)
     return app
 
 
