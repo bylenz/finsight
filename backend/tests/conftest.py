@@ -5,7 +5,8 @@ import finsight.auth.models
 import finsight.budgets.models
 import finsight.categories.models
 import finsight.expenses.models
-import finsight.households.models  # noqa: F401
+import finsight.households.models
+import finsight.insights.models  # noqa: F401
 import pytest
 from finsight.db import Base, get_session
 from finsight.main import app
