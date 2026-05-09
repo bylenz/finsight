@@ -48,7 +48,7 @@ Every commit message follows the [Conventional Commits 1.0](https://www.conventi
 [optional footer(s)]
 ```
 
-Allowed types: `feat`, `fix`, `chore`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `revert`.
+Allowed types: `feat`, `fix`, `chore`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `revert`, `release`.
 
 PR titles are linted by `.github/workflows/pr-title.yml`.
 
