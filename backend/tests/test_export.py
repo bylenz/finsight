@@ -6,7 +6,7 @@ escaping, scoped to the authenticated caller.
 
 import csv
 import io
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
@@ -58,7 +58,9 @@ async def test_export_returns_attachment_disposition(client: AsyncClient) -> Non
     response = await client.get("/export/csv", headers=headers)
     assert response.status_code == 200
     disposition = response.headers["content-disposition"]
-    today_iso = date.today().isoformat()
+    # Use UTC date to match the service's `datetime.now(tz=UTC).date()` —
+    # avoids a flaky failure when CI crosses midnight UTC.
+    today_iso = datetime.now(tz=UTC).date().isoformat()
     assert "attachment" in disposition
     assert "filename=" in disposition
     assert f"finsight-expenses-{today_iso}.csv" in disposition
