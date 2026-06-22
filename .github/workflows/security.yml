@@ -239,3 +239,104 @@ jobs:
         with:
           name: dast-reports
           path: reports/
+
+  # ---------------------------------------------------------------------------
+  # defectdojo-gate — expose whether the DEFECTDOJO_URL secret is configured.
+  # The `secrets` context is NOT available in a job-level `if:` (only github,
+  # needs, vars, inputs are), so we surface its presence as a boolean output
+  # that the upload job gates on.
+  # ---------------------------------------------------------------------------
+  defectdojo-gate:
+    name: DefectDojo Gate
+    runs-on: ubuntu-latest
+    steps:
+      - id: check
+        env:
+          DEFECTDOJO_URL: ${{ secrets.DEFECTDOJO_URL }}
+        run: |
+          if [ -n "$DEFECTDOJO_URL" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+
+  # ---------------------------------------------------------------------------
+  # defectdojo-upload — centralize all scan findings in DefectDojo
+  # Non-blocking: continue-on-error + evidence-on-demand gate.
+  # Skipped automatically when DEFECTDOJO_URL secret is not set.
+  # ---------------------------------------------------------------------------
+  defectdojo-upload:
+    name: DefectDojo Upload
+    needs: [defectdojo-gate, secret-scan, sast, sca, image-scan, dast]
+    if: ${{ always() && needs.defectdojo-gate.outputs.enabled == 'true' }}
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    env:
+      DEFECTDOJO_URL: ${{ secrets.DEFECTDOJO_URL }}
+      DEFECTDOJO_TOKEN: ${{ secrets.DEFECTDOJO_TOKEN }}
+      DEFECTDOJO_PRODUCT_ID: ${{ secrets.DEFECTDOJO_PRODUCT_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download secret-scan reports
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: secret-scan-reports
+          path: artifacts/secret-scan/
+
+      - name: Download SCA reports
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: sca-reports
+          path: artifacts/sca/
+
+      - name: Download SAST reports
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: sast-reports
+          path: artifacts/sast/
+
+      - name: Download image-scan reports
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: image-scan-reports
+          path: artifacts/image-scan/
+
+      - name: Download DAST reports
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: dast-reports
+          path: artifacts/dast/
+
+      - name: Make upload script executable
+        run: chmod +x scripts/upload_to_defectdojo.sh
+
+      - name: Upload findings to DefectDojo
+        run: |
+          S=scripts/upload_to_defectdojo.sh
+
+          # Secret scan
+          bash "${S}" "Gitleaks Scan"       artifacts/secret-scan/gitleaks-report.json
+          bash "${S}" "Trufflehog Scan"     artifacts/secret-scan/trufflehog-report.json
+
+          # SCA — two Trivy uploads: distinct test_title, same registered scan_type
+          bash "${S}" "Trivy Scan FS"       artifacts/sca/trivy-fs-report.json       "Trivy Scan"
+          # sbom.json is intentionally NOT uploaded
+
+          # SAST
+          bash "${S}" "Semgrep JSON Report" artifacts/sast/semgrep-report.json
+          bash "${S}" "Bandit Scan"         artifacts/sast/bandit-report.json
+
+          # Image scan — distinct test_title from Trivy FS above
+          bash "${S}" "Trivy Scan Image"    artifacts/image-scan/trivy-image-report.json "Trivy Scan"
+
+          # DAST
+          bash "${S}" "ZAP Scan"            artifacts/dast/zap-report.json
