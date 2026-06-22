@@ -314,3 +314,128 @@ async def test_delete_expense_returns_404_when_missing(client: AsyncClient) -> N
 
 # Avoid pytest "unused import" complaints for marker-style modules.
 _ = pytest
+
+
+# ---------------------------------------------------------------------------
+# Cross-tenant IDOR regression tests (PR1 — security-hardening)
+#
+# Invariant: expenses are scoped by user_id.  A user from a different
+# account MUST NOT be able to read, mutate, or delete another user's expense,
+# nor see it in list responses.  These tests LOCK that invariant so any
+# future regression is caught immediately.
+# ---------------------------------------------------------------------------
+
+
+class TestExpenseIDOR:
+    """Regression suite: cross-tenant isolation for expense endpoints.
+
+    Two distinct users (user_a / user_b) each own separate expenses.
+    All tests verify that user_b cannot access user_a's resources.
+    Scoping key: expenses.user_id (must never be swapped or removed).
+    """
+
+    async def test_get_expense_by_nonowner_returns_403_or_404(self, client: AsyncClient) -> None:
+        """SC-1.1: GET /expenses/{id} by non-owner returns 403 or 404."""
+        a_headers = await auth_headers(client, "idor_a1@example.com")
+        b_headers = await auth_headers(client, "idor_b1@example.com")
+
+        # user_a creates an expense
+        created = await client.post("/expenses", json=VALID_BODY, headers=a_headers)
+        assert created.status_code == 201
+        expense_id = created.json()["id"]
+
+        # user_b tries to read it — must be denied
+        response = await client.get(f"/expenses/{expense_id}", headers=b_headers)
+        assert response.status_code in (403, 404), (
+            f"Expected 403 or 404, got {response.status_code}. "
+            "IDOR: user_b should not access user_a's expense."
+        )
+        # Response body must NOT expose user_a's expense data
+        body_text = response.text
+        assert "Lunch at corner cafe" not in body_text
+
+    async def test_update_expense_by_nonowner_returns_403_or_404(self, client: AsyncClient) -> None:
+        """SC-1.2: PUT /expenses/{id} by non-owner returns 403 or 404; record unchanged."""
+        a_headers = await auth_headers(client, "idor_a2@example.com")
+        b_headers = await auth_headers(client, "idor_b2@example.com")
+
+        created = await client.post("/expenses", json=VALID_BODY, headers=a_headers)
+        assert created.status_code == 201
+        expense_id = created.json()["id"]
+        original_amount = created.json()["amount"]
+
+        # user_b attempts to update user_a's expense
+        response = await client.put(
+            f"/expenses/{expense_id}",
+            json={"amount": "999.99", "currency": "USD", "description": "Hijacked"},
+            headers=b_headers,
+        )
+        assert response.status_code in (403, 404), (
+            f"Expected 403 or 404, got {response.status_code}. "
+            "IDOR: user_b should not update user_a's expense."
+        )
+
+        # Verify the record is unchanged — owner can still read the original
+        fetch = await client.get(f"/expenses/{expense_id}", headers=a_headers)
+        assert fetch.status_code == 200
+        assert fetch.json()["amount"] == original_amount
+
+    async def test_delete_expense_by_nonowner_returns_403_or_404_and_record_intact(
+        self, client: AsyncClient
+    ) -> None:
+        """SC-1.3: DELETE /expenses/{id} by non-owner returns 403 or 404; record survives."""
+        a_headers = await auth_headers(client, "idor_a3@example.com")
+        b_headers = await auth_headers(client, "idor_b3@example.com")
+
+        created = await client.post("/expenses", json=VALID_BODY, headers=a_headers)
+        assert created.status_code == 201
+        expense_id = created.json()["id"]
+
+        # user_b attempts to delete user_a's expense
+        response = await client.delete(f"/expenses/{expense_id}", headers=b_headers)
+        assert response.status_code in (403, 404), (
+            f"Expected 403 or 404, got {response.status_code}. "
+            "IDOR: user_b should not delete user_a's expense."
+        )
+
+        # Expense must still exist for its owner
+        fetch = await client.get(f"/expenses/{expense_id}", headers=a_headers)
+        assert fetch.status_code == 200, "Expense was deleted by non-owner — IDOR hole!"
+
+    async def test_expense_list_excludes_other_users_expenses(self, client: AsyncClient) -> None:
+        """SC-1.4: GET /expenses list for user_b contains ONLY user_b's expenses."""
+        a_headers = await auth_headers(client, "idor_a4@example.com")
+        b_headers = await auth_headers(client, "idor_b4@example.com")
+
+        # user_a creates 3 expenses
+        for i in range(3):
+            r = await client.post(
+                "/expenses",
+                json={**VALID_BODY, "description": f"UserA expense {i}"},
+                headers=a_headers,
+            )
+            assert r.status_code == 201
+
+        # user_b creates 2 expenses
+        for i in range(2):
+            r = await client.post(
+                "/expenses",
+                json={**VALID_BODY, "description": f"UserB expense {i}"},
+                headers=b_headers,
+            )
+            assert r.status_code == 201
+
+        # user_b lists — must see exactly their 2, none of user_a's 3
+        response = await client.get("/expenses", headers=b_headers)
+        assert response.status_code == 200
+        data = response.json()
+        items = data["items"]
+        assert data["total"] == 2, (
+            f"Expected total=2 for user_b, got {data['total']}. "
+            "IDOR: user_b's list may contain user_a's expenses."
+        )
+        assert len(items) == 2
+        descriptions = {item["description"] for item in items}
+        assert all(
+            "UserB" in d for d in descriptions
+        ), f"user_b's list contains unexpected items: {descriptions}"
