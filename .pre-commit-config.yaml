@@ -28,3 +28,14 @@ repos:
       - id: conventional-pre-commit
         stages: [commit-msg]
         args: [feat, fix, chore, docs, style, refactor, perf, test, build, ci, revert, release]
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.27.2
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/trufflesecurity/trufflehog
+    rev: v3.90.8
+    hooks:
+      - id: trufflehog
+        args: ['git', 'file://.', '--results=verified,unknown', '--fail']
