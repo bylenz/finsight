@@ -342,3 +342,127 @@ async def test_budget_status_not_owner_returns_403(client: AsyncClient) -> None:
 
 
 _ = pytest
+
+
+# ---------------------------------------------------------------------------
+# Cross-tenant IDOR regression tests (PR1 — security-hardening)
+#
+# Invariant: budgets are scoped by household_id.  A user whose personal
+# household differs from another user's household MUST NOT be able to read,
+# mutate, or delete the other household's budget, nor see it in list responses.
+# These tests LOCK that invariant so any future regression is caught immediately.
+# ---------------------------------------------------------------------------
+
+BUDGET_BODY = {"amount": "500.00", "currency": "PEN", "period": "monthly"}
+
+
+class TestBudgetIDOR:
+    """Regression suite: cross-tenant isolation for budget endpoints.
+
+    Two distinct users (user_h1 / user_h2) each have separate personal
+    households.  All tests verify that user_h2 cannot access user_h1's
+    budgets.
+    Scoping key: budgets.household_id (must never be swapped or removed).
+    """
+
+    async def test_get_budget_by_nonmember_household_returns_403_or_404(
+        self, client: AsyncClient
+    ) -> None:
+        """SC-1.5: GET /budgets/{id} by non-member household returns 403 or 404."""
+        h1_headers = await auth_headers(client, "idor_h1a@example.com")
+        h2_headers = await auth_headers(client, "idor_h2a@example.com")
+
+        # H1 creates a budget
+        created = await client.post("/budgets", json=BUDGET_BODY, headers=h1_headers)
+        assert created.status_code == 201
+        budget_id = created.json()["id"]
+
+        # H2 user tries to read it — must be denied
+        response = await client.get(f"/budgets/{budget_id}", headers=h2_headers)
+        assert response.status_code in (403, 404), (
+            f"Expected 403 or 404, got {response.status_code}. "
+            "IDOR: H2 user should not read H1's budget."
+        )
+
+    async def test_update_budget_by_nonmember_household_returns_403_or_404_and_record_intact(
+        self, client: AsyncClient
+    ) -> None:
+        """SC-1.6: PUT /budgets/{id} by non-member household denied; record unchanged."""
+        h1_headers = await auth_headers(client, "idor_h1b@example.com")
+        h2_headers = await auth_headers(client, "idor_h2b@example.com")
+
+        created = await client.post("/budgets", json=BUDGET_BODY, headers=h1_headers)
+        assert created.status_code == 201
+        budget_id = created.json()["id"]
+        original_amount = created.json()["amount"]
+
+        # H2 user attempts to update H1's budget
+        response = await client.put(
+            f"/budgets/{budget_id}",
+            json={"amount": "9999.00", "currency": "PEN", "period": "monthly"},
+            headers=h2_headers,
+        )
+        assert response.status_code in (403, 404), (
+            f"Expected 403 or 404, got {response.status_code}. "
+            "IDOR: H2 user should not update H1's budget."
+        )
+
+        # Verify record is unchanged — H1 owner can still read the original
+        fetch = await client.get(f"/budgets/{budget_id}", headers=h1_headers)
+        assert fetch.status_code == 200
+        assert fetch.json()["amount"] == original_amount
+
+    async def test_delete_budget_by_nonmember_household_returns_403_or_404_and_record_intact(
+        self, client: AsyncClient
+    ) -> None:
+        """SC-1.7: DELETE /budgets/{id} by non-member household denied; record survives."""
+        h1_headers = await auth_headers(client, "idor_h1c@example.com")
+        h2_headers = await auth_headers(client, "idor_h2c@example.com")
+
+        created = await client.post("/budgets", json=BUDGET_BODY, headers=h1_headers)
+        assert created.status_code == 201
+        budget_id = created.json()["id"]
+
+        # H2 user attempts to delete H1's budget
+        response = await client.delete(f"/budgets/{budget_id}", headers=h2_headers)
+        assert response.status_code in (403, 404), (
+            f"Expected 403 or 404, got {response.status_code}. "
+            "IDOR: H2 user should not delete H1's budget."
+        )
+
+        # Budget must still exist for its owner
+        fetch = await client.get(f"/budgets/{budget_id}", headers=h1_headers)
+        assert fetch.status_code == 200, "Budget was deleted by non-member — IDOR hole!"
+
+    async def test_budget_list_excludes_other_household_budgets(self, client: AsyncClient) -> None:
+        """SC-1.8: GET /budgets list for H2 user contains ONLY H2's budgets."""
+        h1_headers = await auth_headers(client, "idor_h1d@example.com")
+        h2_headers = await auth_headers(client, "idor_h2d@example.com")
+
+        # H1 creates 2 budgets
+        for amount in ("100.00", "200.00"):
+            r = await client.post(
+                "/budgets",
+                json={"amount": amount, "currency": "PEN", "period": "monthly"},
+                headers=h1_headers,
+            )
+            assert r.status_code == 201
+
+        # H2 creates 1 budget
+        r = await client.post(
+            "/budgets",
+            json={"amount": "300.00", "currency": "PEN", "period": "monthly"},
+            headers=h2_headers,
+        )
+        assert r.status_code == 201
+        h2_budget_amount = r.json()["amount"]
+
+        # H2 user lists — must see exactly their 1 budget, not H1's 2
+        response = await client.get("/budgets", headers=h2_headers)
+        assert response.status_code == 200
+        items = response.json()
+        assert len(items) == 1, (
+            f"Expected 1 budget for H2, got {len(items)}. "
+            "IDOR: H2's list may contain H1's budgets."
+        )
+        assert items[0]["amount"] == h2_budget_amount

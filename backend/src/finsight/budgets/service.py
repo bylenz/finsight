@@ -2,6 +2,13 @@
 
 All operations are scoped to the caller's household. A budget with
 ``category_id IS NULL`` is treated as the household's overall monthly cap.
+
+Scoping-key invariant (security-hardening, PR1):
+  - Budgets are scoped by ``household_id``.  Every query or ownership check
+    MUST filter on ``Budget.household_id == household.id`` where ``household``
+    is the caller's personal household resolved via ``_resolve_user_household``.
+  - Expenses are scoped by ``user_id`` (see expenses/service.py).
+  - These two keys are INTENTIONALLY different and MUST NOT be swapped.
 """
 
 from datetime import UTC, datetime

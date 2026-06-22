@@ -1,3 +1,15 @@
+"""Expenses service — CRUD + list.
+
+Scoping-key invariant (security-hardening, PR1):
+  - Expenses are scoped by ``user_id``.  Every query or ownership check MUST
+    filter on ``Expense.user_id == user.id``.
+  - Budgets are scoped by ``household_id`` (see budgets/service.py).
+  - These two keys are INTENTIONALLY different and MUST NOT be swapped.
+    The 1-to-1 user↔household relationship in the current implementation
+    makes them coincide in practice, but the service layer must always use
+    the canonical key for its domain.
+"""
+
 import logging
 from datetime import UTC, date, datetime
 from decimal import Decimal
