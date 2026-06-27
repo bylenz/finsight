@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator
 
 # Import models so they register with Base.metadata before create_all.
+# auth.models imports User + RevokedToken + RefreshToken (PR3).
 import finsight.auth.models
 import finsight.budgets.models
 import finsight.categories.models
@@ -48,3 +49,20 @@ async def client(session_factory) -> AsyncIterator[AsyncClient]:
             yield ac
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def refresh_token_factory(db_session: AsyncSession):
+    """Factory fixture: creates a valid refresh token row and returns the encoded JWT.
+
+    Usage::
+
+        async def test_something(refresh_token_factory, db_session):
+            encoded = await refresh_token_factory(user_id=1, subject="user@example.com")
+    """
+    from finsight.auth.service import issue_refresh_token
+
+    async def _factory(user_id: int, subject: str) -> str:
+        return await issue_refresh_token(db_session, user_id=user_id, subject=subject)
+
+    return _factory
