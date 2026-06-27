@@ -1,10 +1,12 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from finsight.auth.deps import get_current_user
 from finsight.auth.models import User
+from finsight.common.ratelimit import limiter
+from finsight.config import settings
 from finsight.db import get_session
 from finsight.expenses import service as expense_service
 from finsight.expenses.schemas import (
@@ -27,7 +29,9 @@ def _forbidden() -> HTTPException:
 
 
 @router.post("", response_model=ExpensePublic, status_code=status.HTTP_201_CREATED)
+@limiter.limit(lambda: settings.rate_limit_expense_create)
 async def create_expense_endpoint(
+    request: Request,
     payload: ExpenseCreate,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(get_current_user),

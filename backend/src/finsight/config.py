@@ -22,5 +22,20 @@ class Settings(BaseSettings):
     app_env: str = Field(default="development")
     log_level: str = Field(default="INFO")
 
+    # --- Rate limiting (SlowAPI) ---
+    # Set to False in test environments to prevent CI flake.
+    # Dedicated rate-limit tests override this to True.
+    rate_limit_enabled: bool = Field(default=False)
+    # Production: "5/minute". Tests: permissive default (limiter disabled anyway).
+    rate_limit_login: str = Field(default="5/minute")
+    # Production: "60/minute". Tests: permissive default.
+    rate_limit_expense_create: str = Field(default="60/minute")
+
+    # --- LLM categorizer guard ---
+    # When False (default), the LLM is skipped and "Other" is returned directly.
+    llm_categorizer_enabled: bool = Field(default=True)
+    # Number of consecutive LLM failures before the circuit breaker opens.
+    llm_circuit_breaker_threshold: int = Field(default=5)
+
 
 settings = Settings()
