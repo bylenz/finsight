@@ -3,14 +3,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from finsight.auth.deps import get_current_user, get_token_payload
 from finsight.auth.models import User
-from finsight.auth.schemas import TokenResponse, UserLogin, UserPublic, UserRegister
+from finsight.auth.schemas import RefreshRequest, TokenResponse, UserLogin, UserPublic, UserRegister
 from finsight.auth.security import create_access_token
 from finsight.auth.service import (
     EmailAlreadyRegisteredError,
     InvalidCredentialsError,
+    InvalidRefreshTokenError,
     authenticate_user,
+    get_user_by_email,
+    issue_refresh_token,
     register_user,
     revoke_token,
+    revoke_user_refresh_tokens,
+    rotate_refresh_token,
     utc_from_timestamp,
 )
 from finsight.common.ratelimit import limiter
@@ -51,11 +56,37 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
 
-    token = create_access_token(subject=user.email)
+    access_token = create_access_token(subject=user.email)
+    refresh_token_encoded = await issue_refresh_token(session, user_id=user.id, subject=user.email)
+
     return TokenResponse(
-        access_token=token,
+        access_token=access_token,
         token_type="bearer",
-        expires_in=settings.jwt_expires_hours * 3600,
+        expires_in=settings.jwt_expires_minutes * 60,
+        refresh_token=refresh_token_encoded,
+    )
+
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh(
+    payload: RefreshRequest,
+    session: AsyncSession = Depends(get_session),
+) -> TokenResponse:
+    """Validate a refresh token, rotate it, and return a new access + refresh pair."""
+    try:
+        new_access, new_refresh = await rotate_refresh_token(session, payload.refresh_token)
+    except InvalidRefreshTokenError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+    return TokenResponse(
+        access_token=new_access,
+        token_type="bearer",
+        expires_in=settings.jwt_expires_minutes * 60,
+        refresh_token=new_refresh,
     )
 
 
@@ -64,7 +95,14 @@ async def logout(
     payload: dict = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
+    # Revoke the access token in the existing denylist
     await revoke_token(session, jti=payload["jti"], expires_at=utc_from_timestamp(payload["exp"]))
+
+    # Revoke all active refresh tokens for this user
+    user = await get_user_by_email(session, payload["sub"])
+    if user is not None:
+        await revoke_user_refresh_tokens(session, user.id)
+
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

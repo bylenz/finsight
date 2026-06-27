@@ -8,7 +8,15 @@ class Settings(BaseSettings):
     database_url: str = Field(default="postgresql+asyncpg://finsight:finsight@db:5432/finsight")
     jwt_secret: str = Field(default="change-me")
     jwt_algorithm: str = Field(default="HS256")
-    jwt_expires_hours: int = Field(default=24)
+    # Access token TTL — new canonical setting (15 min default).
+    jwt_expires_minutes: int = Field(default=15)
+    # Refresh token TTL in days.
+    jwt_refresh_expires_days: int = Field(default=7)
+
+    @property
+    def jwt_expires_hours(self) -> float:
+        """Deprecated backward-compat property. Derive from jwt_expires_minutes."""
+        return self.jwt_expires_minutes / 60
 
     anthropic_api_key: str = Field(default="")
     # Empty = official Anthropic API. Set to "https://api.z.ai/api/anthropic" for Z.ai's

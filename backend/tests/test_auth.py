@@ -1,6 +1,5 @@
 from datetime import UTC, datetime, timedelta
 
-import pytest
 from finsight.auth.security import create_access_token
 from finsight.config import settings
 from httpx import AsyncClient
@@ -152,8 +151,8 @@ async def test_logout_without_token_returns_401(client: AsyncClient) -> None:
 # --- Token shape -------------------------------------------------------------
 
 
-@pytest.mark.parametrize("hours", [24])
-async def test_jwt_default_expires_in_24_hours(client: AsyncClient, hours: int) -> None:
+async def test_jwt_default_expires_in_15_minutes(client: AsyncClient) -> None:
+    """Access token TTL changed to 15 min in PR3 (was 24 h)."""
     await _register(client)
     response = await client.post(
         "/auth/login",
@@ -165,6 +164,6 @@ async def test_jwt_default_expires_in_24_hours(client: AsyncClient, hours: int) 
         algorithms=[settings.jwt_algorithm],
     )
     expires_at = datetime.fromtimestamp(payload["exp"], tz=UTC)
-    expected = datetime.now(tz=UTC) + timedelta(hours=hours)
+    expected = datetime.now(tz=UTC) + timedelta(minutes=15)
     delta = abs((expires_at - expected).total_seconds())
-    assert delta < 60, f"Token expiration drifted by {delta}s"
+    assert delta < 60, f"Token expiration drifted by {delta}s (expected ~15 min)"

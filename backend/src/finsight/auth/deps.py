@@ -32,6 +32,10 @@ async def get_current_user(
     if jti is None or email is None:
         raise unauthorized
 
+    # A refresh token must NOT authenticate normal API requests.
+    if payload.get("token_type") != "access":
+        raise unauthorized
+
     if await is_token_revoked(session, jti):
         raise unauthorized
 
@@ -52,6 +56,10 @@ async def get_token_payload(
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise unauthorized
     try:
-        return decode_access_token(credentials.credentials)
+        payload = decode_access_token(credentials.credentials)
     except JWTError as exc:
         raise unauthorized from exc
+    # Only access tokens are valid bearer credentials.
+    if payload.get("token_type") != "access":
+        raise unauthorized
+    return payload
