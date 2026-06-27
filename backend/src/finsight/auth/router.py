@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from finsight.auth.deps import get_current_user, get_token_payload
@@ -13,6 +13,7 @@ from finsight.auth.service import (
     revoke_token,
     utc_from_timestamp,
 )
+from finsight.common.ratelimit import limiter
 from finsight.config import settings
 from finsight.db import get_session
 
@@ -35,7 +36,12 @@ async def register(payload: UserRegister, session: AsyncSession = Depends(get_se
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(payload: UserLogin, session: AsyncSession = Depends(get_session)) -> TokenResponse:
+@limiter.limit(lambda: settings.rate_limit_login)
+async def login(
+    request: Request,
+    payload: UserLogin,
+    session: AsyncSession = Depends(get_session),
+) -> TokenResponse:
     try:
         user = await authenticate_user(session, payload.email, payload.password)
     except InvalidCredentialsError as exc:

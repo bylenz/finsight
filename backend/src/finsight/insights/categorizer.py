@@ -33,6 +33,48 @@ logger = logging.getLogger(__name__)
 # Default in config.py targets Claude Haiku — comfortably inside NFR-02 (< 2s p95).
 _MAX_TOKENS = 16  # we only need an integer back
 
+# ---------------------------------------------------------------------------
+# Circuit breaker — in-process, fail-open
+# ---------------------------------------------------------------------------
+# Tracks consecutive LLM call failures.  When the count reaches
+# settings.llm_circuit_breaker_threshold, the breaker OPENS and subsequent
+# calls return the "Other" fallback without contacting the Anthropic API.
+# The breaker resets to CLOSED on the first successful LLM call.
+# This state is module-level so it persists across requests in the same
+# worker process.  It does NOT persist across process restarts (by design —
+# transient outages self-heal on next deploy/restart).
+_circuit_breaker_consecutive_failures: int = 0
+
+
+def _circuit_breaker_is_open() -> bool:
+    return _circuit_breaker_consecutive_failures >= settings.llm_circuit_breaker_threshold
+
+
+def _circuit_breaker_record_failure() -> None:
+    global _circuit_breaker_consecutive_failures
+    _circuit_breaker_consecutive_failures += 1
+    if _circuit_breaker_is_open():
+        logger.warning(
+            "LLM circuit breaker OPENED after %d consecutive failures — "
+            "all subsequent calls will use the 'Other' fallback until a "
+            "successful response is received.",
+            _circuit_breaker_consecutive_failures,
+        )
+
+
+def _circuit_breaker_record_success() -> None:
+    global _circuit_breaker_consecutive_failures
+    if _circuit_breaker_consecutive_failures > 0:
+        logger.info("LLM circuit breaker CLOSED after successful response.")
+    _circuit_breaker_consecutive_failures = 0
+
+
+def reset_circuit_breaker() -> None:
+    """Reset circuit breaker state.  Intended for tests only."""
+    global _circuit_breaker_consecutive_failures
+    _circuit_breaker_consecutive_failures = 0
+
+
 _SYSTEM_PROMPT = (
     "You are a Spanish-language expense categorizer for personal finance in "
     "Latin America. The user will give you an expense description and a JSON "
@@ -101,20 +143,20 @@ async def _other_category_id(session: AsyncSession, available_categories: list[C
 
 
 async def _ask_llm(description: str, categories: list[Category]) -> str | None:
-    """Single shot to the Anthropic Messages API. Returns the raw text or None."""
-    try:
-        client = _get_client()
-        response = await client.messages.create(
-            model=settings.llm_model,
-            max_tokens=_MAX_TOKENS,
-            system=_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": _build_user_message(description, categories)}],
-        )
-        # response.content is a list of content blocks; the first is text.
-        return response.content[0].text  # type: ignore[no-any-return]
-    except Exception as exc:
-        logger.warning("LLM categorization failed (%s) — using Other fallback", exc)
-        return None
+    """Single shot to the Anthropic Messages API. Returns the raw text or None.
+
+    Exceptions are allowed to propagate so the circuit breaker in ``categorize``
+    can count consecutive failures.
+    """
+    client = _get_client()
+    response = await client.messages.create(
+        model=settings.llm_model,
+        max_tokens=_MAX_TOKENS,
+        system=_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": _build_user_message(description, categories)}],
+    )
+    # response.content is a list of content blocks; the first is text.
+    return response.content[0].text  # type: ignore[no-any-return]
 
 
 def _parse_category_id(text: str, categories: list[Category]) -> int | None:
@@ -156,7 +198,32 @@ async def categorize(
         logger.info("No anthropic_api_key configured — using Other fallback")
         return await _other_category_id(session, available_categories)
 
-    raw = await _ask_llm(description, available_categories)
+    # Guard 1: opt-in flag — when disabled, skip LLM entirely (fail-open).
+    if not settings.llm_categorizer_enabled:
+        logger.debug(
+            "LLM categorizer disabled (llm_categorizer_enabled=False) — using Other fallback"
+        )
+        return await _other_category_id(session, available_categories)
+
+    # Guard 2: circuit breaker — OPEN means too many consecutive failures; skip LLM.
+    if _circuit_breaker_is_open():
+        logger.warning(
+            "LLM circuit breaker is OPEN (%d failures) — using Other fallback without LLM call",
+            _circuit_breaker_consecutive_failures,
+        )
+        return await _other_category_id(session, available_categories)
+
+    # Call LLM with circuit breaker tracking.
+    try:
+        raw = await _ask_llm(description, available_categories)
+    except Exception as exc:
+        _circuit_breaker_record_failure()
+        logger.warning("LLM categorization failed (%s) — using Other fallback", exc)
+        return await _other_category_id(session, available_categories)
+
+    # Successful SDK call — reset failure counter.
+    _circuit_breaker_record_success()
+
     if raw is None:
         return await _other_category_id(session, available_categories)
 
