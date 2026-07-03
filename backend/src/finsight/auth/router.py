@@ -18,6 +18,7 @@ from finsight.auth.service import (
     rotate_refresh_token,
     utc_from_timestamp,
 )
+from finsight.common.audit import emit_audit_event
 from finsight.common.ratelimit import limiter
 from finsight.config import settings
 from finsight.db import get_session
@@ -47,9 +48,13 @@ async def login(
     payload: UserLogin,
     session: AsyncSession = Depends(get_session),
 ) -> TokenResponse:
+    client_ip = request.client.host if request.client else None
     try:
         user = await authenticate_user(session, payload.email, payload.password)
     except InvalidCredentialsError as exc:
+        await emit_audit_event(
+            "login_failure", user_id=None, ip=client_ip, outcome="failure", session=session
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
@@ -59,6 +64,9 @@ async def login(
     access_token = create_access_token(subject=user.email)
     refresh_token_encoded = await issue_refresh_token(session, user_id=user.id, subject=user.email)
 
+    await emit_audit_event(
+        "login_success", user_id=user.id, ip=client_ip, outcome="success", session=session
+    )
     return TokenResponse(
         access_token=access_token,
         token_type="bearer",
@@ -70,6 +78,7 @@ async def login(
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(
     payload: RefreshRequest,
+    request: Request,
     session: AsyncSession = Depends(get_session),
 ) -> TokenResponse:
     """Validate a refresh token, rotate it, and return a new access + refresh pair."""
@@ -82,6 +91,13 @@ async def refresh(
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
 
+    await emit_audit_event(
+        "token_refresh",
+        user_id=None,
+        ip=request.client.host if request.client else None,
+        outcome="success",
+        session=session,
+    )
     return TokenResponse(
         access_token=new_access,
         token_type="bearer",
@@ -92,6 +108,7 @@ async def refresh(
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
+    request: Request,
     payload: dict = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
@@ -103,6 +120,13 @@ async def logout(
     if user is not None:
         await revoke_user_refresh_tokens(session, user.id)
 
+    await emit_audit_event(
+        "logout",
+        user_id=user.id if user is not None else None,
+        ip=request.client.host if request.client else None,
+        outcome="success",
+        session=session,
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
