@@ -15,6 +15,10 @@
 #   DEFECTDOJO_TOKEN      API token (Authorization header)
 #   DEFECTDOJO_PRODUCT_ID Numeric product ID
 #
+# Optional environment variables:
+#   DEFECTDOJO_PRODUCT_NAME  Product name (default "FinSight"). Required by
+#                            DefectDojo whenever auto_create_context=true.
+#
 # Optional environment variables (all default to "local" when unset):
 #   GITHUB_SHA            Commit hash
 #   GITHUB_RUN_ID         CI run ID
@@ -89,6 +93,7 @@ HTTP_STATUS=$(
     -w '%{http_code}' \
     -H "Authorization: Token ${DEFECTDOJO_TOKEN}" \
     -F "product_id=${DEFECTDOJO_PRODUCT_ID}" \
+    -F "product_name=${DEFECTDOJO_PRODUCT_NAME:-FinSight}" \
     -F "engagement_name=CI Security Scan" \
     -F "test_title=${SCAN_TYPE}" \
     -F "scan_type=${SCAN_TYPE_API}" \
