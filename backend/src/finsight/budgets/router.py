@@ -1,6 +1,6 @@
 """HTTP endpoints for budgets and alerts."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from finsight.auth.deps import get_current_user
@@ -15,6 +15,7 @@ from finsight.budgets.schemas import (
     BudgetUpdate,
 )
 from finsight.budgets.service import BudgetForbiddenError, BudgetNotFoundError
+from finsight.common.audit import emit_audit_event
 from finsight.db import get_session
 
 budgets_router = APIRouter(prefix="/budgets", tags=["budgets"])
@@ -32,10 +33,19 @@ def _forbidden() -> HTTPException:
 @budgets_router.post("", response_model=BudgetPublic, status_code=status.HTTP_201_CREATED)
 async def create_budget_endpoint(
     payload: BudgetCreate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(get_current_user),
 ) -> BudgetPublic:
     budget = await budget_service.create_budget(session, user, payload)
+    await emit_audit_event(
+        "budget_created",
+        user_id=user.id,
+        ip=request.client.host if request.client else None,
+        outcome="success",
+        session=session,
+        metadata={"resource_id": budget.id, "resource_type": "budget"},
+    )
     return BudgetPublic.model_validate(budget)
 
 
@@ -68,6 +78,7 @@ async def get_budget_endpoint(
 async def update_budget_endpoint(
     budget_id: int,
     payload: BudgetUpdate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(get_current_user),
 ) -> BudgetPublic:
@@ -77,12 +88,21 @@ async def update_budget_endpoint(
         raise _not_found() from exc
     except BudgetForbiddenError as exc:
         raise _forbidden() from exc
+    await emit_audit_event(
+        "budget_updated",
+        user_id=user.id,
+        ip=request.client.host if request.client else None,
+        outcome="success",
+        session=session,
+        metadata={"resource_id": budget_id, "resource_type": "budget"},
+    )
     return BudgetPublic.model_validate(budget)
 
 
 @budgets_router.delete("/{budget_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_budget_endpoint(
     budget_id: int,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(get_current_user),
 ) -> Response:
@@ -92,6 +112,14 @@ async def delete_budget_endpoint(
         raise _not_found() from exc
     except BudgetForbiddenError as exc:
         raise _forbidden() from exc
+    await emit_audit_event(
+        "budget_deleted",
+        user_id=user.id,
+        ip=request.client.host if request.client else None,
+        outcome="success",
+        session=session,
+        metadata={"resource_id": budget_id, "resource_type": "budget"},
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

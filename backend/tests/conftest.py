@@ -2,9 +2,11 @@ from collections.abc import AsyncIterator
 
 # Import models so they register with Base.metadata before create_all.
 # auth.models imports User + RevokedToken + RefreshToken (PR3).
+# common.audit imports AuditLog (PR4).
 import finsight.auth.models
 import finsight.budgets.models
 import finsight.categories.models
+import finsight.common.audit
 import finsight.expenses.models
 import finsight.households.models
 import finsight.insights.models  # noqa: F401
