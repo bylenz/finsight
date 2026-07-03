@@ -155,8 +155,15 @@ de los escáneres en un único dashboard de deuda técnica de seguridad.
   DefectDojo con un túnel (**ngrok**) y se guardan `DEFECTDOJO_URL`, `DEFECTDOJO_TOKEN`,
   `DEFECTDOJO_PRODUCT_ID` como *secrets* del repositorio.
 
-> `⏳ TODO(evidence)`: capturas de Products → FinSight (hallazgos por severidad/herramienta) y
-> Metrics → Product Metrics.
+**Evidencia (ejecución real):** se desplegó DefectDojo localmente (Docker, puerto `:8082`), se creó
+el Product **FinSight** y el Engagement **CI Security Scan**, y se ingirieron los reportes de los 5
+escáneres vía `POST /api/v2/reimport-scan/`. Resultado: **22 hallazgos** centralizados
+(16 Critical — candidatos de TruffleHog, en su mayoría sin verificar / fixtures de test — y 6 Low de
+Semgrep/Bandit), con un test por herramienta (Gitleaks, TruffleHog, Trivy, Semgrep, Bandit).
+
+![DefectDojo — Product FinSight: métricas por severidad](./evidence/dd-product-finsight.png)
+
+![DefectDojo — Hallazgos abiertos](./evidence/dd-findings-open.png)
 
 ---
 
@@ -190,8 +197,18 @@ severidades/IDs con los resultados reales tras ejecutar el pipeline.
 - Doble barrera de secretos (pre-commit + CI).
 - Trazabilidad de la postura de seguridad a lo largo del tiempo (Product Metrics).
 
-> `⏳ TODO(evidence)`: cuadro comparativo con números reales (Nº de hallazgos por severidad antes/después,
-> tiempo de detección, % de hallazgos mitigados).
+**Cuadro comparativo (ejecución real):**
+
+| Métrica | Antes | Después |
+|---------|-------|---------|
+| Herramientas de seguridad en CI | 0 | 5 (Gitleaks, TruffleHog, Trivy+SBOM, Semgrep, Bandit) + ZAP (DAST) |
+| Hallazgos visibles / centralizados | 0 (invisibles) | 22 en DefectDojo (16 Critical, 6 Low) |
+| Gestión de vulnerabilidades | Ninguna | Dashboard DefectDojo por severidad/herramienta |
+| Barreras contra secretos | 1 (detect-private-key) | 3 (detect-private-key + Gitleaks + TruffleHog, pre-commit y CI) |
+| Vulnerabilidades STRIDE mitigadas en código | 0 | 4 (IDOR, rate-limit, refresh tokens, audit log) |
+
+> Nota: los 16 Critical son candidatos de TruffleHog (`--results=verified,unknown`), en su mayoría
+> sin verificar (tokens de ejemplo / fixtures de test), no secretos reales en producción.
 
 ---
 
