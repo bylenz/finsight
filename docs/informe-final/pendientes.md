@@ -9,6 +9,23 @@ Trabajo de implementación necesario para convertir el esqueleto del informe en 
 > - `security-hardening` — proposal #884 · spec #888 · design #889 · tasks #890
 > - _(manual)_ — items que `sdd-apply` no puede ejecutar (diagramas, PDF, exposición).
 
+## Estado actual (automatizado en esta sesión)
+
+- ✅ **Pipeline** — `security.yml` (Gitleaks, TruffleHog, Trivy+SBOM, Semgrep, Bandit, ZAP) + pre-commit hooks (PR #19). CI en verde.
+- ✅ **Escaneo real ejecutado localmente** — `reports/*.json` generados (Gitleaks: sin fugas; Semgrep/Bandit/Trivy/TruffleHog con datos).
+- ✅ **DefectDojo desplegado** (`:8082`) + Product `FinSight` + Engagement `CI Security Scan` + **22 hallazgos ingeridos** vía `reimport-scan` (script `upload_to_defectdojo.sh`, con fix `product_name`).
+- ✅ **Evidencia capturada** — `docs/informe-final/evidence/dd-*.png` (dashboard por severidad + hallazgos).
+- ✅ **STRIDE draw.io** — `stride-finsight.drawio` (abrir/importar en diagrams.net).
+- ✅ **Plantilla STRIDE Excel** — `stride-finsight.xlsx` (hojas STRIDE + Mitigaciones).
+- ✅ **Informe PDF** — `informe-final.pdf` (diagramas Mermaid + evidencia embebidos).
+- ✅ **Cambios de código** — IDOR (PR #21), rate-limit (PR #22), refresh tokens (PR #23), audit log (PR #24).
+
+### Solo queda en tu mano (manual, sin bugs de mi parte)
+- 🔲 Subir `stride-finsight.drawio` a draw.io y `stride-finsight.xlsx` a Google Sheets/Drive → obtener los **links** que pide la rúbrica (requieren tu cuenta Google).
+- 🔲 Pegar esos 2 links + el link del PDF en el `README.md` (sección de entregables).
+- 🔲 (Opcional) Túnel **ngrok** hacia `:8082` + guardar `DEFECTDOJO_URL/TOKEN/PRODUCT_ID` como secrets del repo, si quieres que el job `defectdojo-upload` corra en CI (requiere tu authtoken de ngrok).
+- 🔲 Preparar la **exposición** (mismo informe o PPT).
+
 ## Pipeline (GitHub Actions) · SDD: `security-pipeline`
 - [ ] Crear `.github/workflows/security.yml` con los jobs: `secret-scan` (gitleaks, trufflehog),
       `sca` (trivy fs + imagen + SBOM CycloneDX), `sast` (semgrep, bandit), `dast` (OWASP ZAP baseline),

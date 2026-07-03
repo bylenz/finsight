@@ -28,10 +28,12 @@ pendiente (para generar la evidencia real) está en [`pendientes.md`](./pendient
 > Reemplazar los placeholders antes de la entrega.
 
 1. **Link del repositorio** (código + configuración del pipeline): https://github.com/bylenz/finsight
-2. **Link del diagrama STRIDE en draw.io**: `⏳ TODO`
-3. **Link de la plantilla STRIDE (Excel)**: `⏳ TODO`
-4. **Informe en PDF** (este `informe-final.md` exportado, cubriendo el punto 2 + links): `⏳ TODO`
+2. **Diagrama STRIDE (draw.io)**: [`stride-finsight.drawio`](./stride-finsight.drawio) — abrir/importar en diagrams.net; publicar y pegar el link `⏳ (tu cuenta Google)`
+3. **Plantilla STRIDE (Excel)**: [`stride-finsight.xlsx`](./stride-finsight.xlsx) — subir a Google Sheets/Drive y pegar el link `⏳ (tu cuenta Google)`
+4. **Informe en PDF**: [`informe-final.pdf`](./informe-final.pdf) ✅ (generado; cubre el punto 2 + evidencia DefectDojo)
 5. **Exposición** (mismo informe o PPT): `⏳ TODO`
+
+**Evidencia de ejecución:** [`evidence/`](./evidence/) — capturas del dashboard DefectDojo (Product FinSight, 22 hallazgos por severidad/herramienta).
 
 ## Nota sobre las guías de referencia
 

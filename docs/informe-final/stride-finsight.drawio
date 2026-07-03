@@ -1,0 +1,66 @@
+<mxfile host="app.diagrams.net" type="device">
+  <diagram name="STRIDE - FinSight" id="stride-finsight">
+    <mxGraphModel dx="1100" dy="720" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="826" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Trust boundaries -->
+        <mxCell id="tb_net" value="Zona no confiable (Internet)" style="rounded=0;dashed=1;dashPattern=8 8;strokeColor=#B85450;fillColor=none;verticalAlign=top;fontStyle=1;fontColor=#B85450;" vertex="1" parent="1">
+          <mxGeometry x="40" y="60" width="200" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="tb_edge" value="Frontera de confianza: Borde de la app" style="rounded=0;dashed=1;dashPattern=8 8;strokeColor=#6C8EBF;fillColor=none;verticalAlign=top;fontStyle=1;fontColor=#6C8EBF;" vertex="1" parent="1">
+          <mxGeometry x="300" y="60" width="220" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="tb_api" value="Frontera de confianza: API autenticada (JWT)" style="rounded=0;dashed=1;dashPattern=8 8;strokeColor=#9673A6;fillColor=none;verticalAlign=top;fontStyle=1;fontColor=#9673A6;" vertex="1" parent="1">
+          <mxGeometry x="580" y="40" width="280" height="320" as="geometry" />
+        </mxCell>
+        <mxCell id="tb_data" value="Frontera de confianza: Datos" style="rounded=0;dashed=1;dashPattern=8 8;strokeColor=#82B366;fillColor=none;verticalAlign=top;fontStyle=1;fontColor=#82B366;" vertex="1" parent="1">
+          <mxGeometry x="920" y="60" width="200" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="tb_ext" value="Tercero (fuera de control)" style="rounded=0;dashed=1;dashPattern=8 8;strokeColor=#D79B00;fillColor=none;verticalAlign=top;fontStyle=1;fontColor=#D79B00;" vertex="1" parent="1">
+          <mxGeometry x="920" y="240" width="200" height="120" as="geometry" />
+        </mxCell>
+
+        <!-- Nodes -->
+        <mxCell id="n_user" value="Usuario / Navegador" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#F8CECC;strokeColor=#B85450;" vertex="1" parent="1">
+          <mxGeometry x="110" y="110" width="50" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="n_ui" value="Streamlit UI&#10;(finsight_ui)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="1">
+          <mxGeometry x="330" y="120" width="160" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n_api" value="FastAPI&#10;auth · expenses · budgets&#10;dashboard · exports · insights" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;" vertex="1" parent="1">
+          <mxGeometry x="610" y="150" width="220" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="n_db" value="PostgreSQL 16" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#D5E8D4;strokeColor=#82B366;" vertex="1" parent="1">
+          <mxGeometry x="960" y="100" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="n_llm" value="Anthropic LLM API" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#FFE6CC;strokeColor=#D79B00;" vertex="1" parent="1">
+          <mxGeometry x="950" y="280" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Edges -->
+        <mxCell id="e1" value="HTTPS  [S]" style="endArrow=block;html=1;strokeColor=#B85450;" edge="1" parent="1" source="n_user" target="n_ui">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="Bearer JWT / REST  [S,E]" style="endArrow=block;html=1;strokeColor=#6C8EBF;" edge="1" parent="1" source="n_ui" target="n_api">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="SQLAlchemy async  [T,I]" style="endArrow=block;html=1;strokeColor=#82B366;" edge="1" parent="1" source="n_api" target="n_db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="descripcion del gasto (PII)  [I,D]" style="endArrow=block;html=1;dashed=1;strokeColor=#D79B00;" edge="1" parent="1" source="n_api" target="n_llm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="categoria sugerida" style="endArrow=block;html=1;dashed=1;strokeColor=#D79B00;" edge="1" parent="1" source="n_llm" target="n_api">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="leg" value="STRIDE:  S=Spoofing  T=Tampering  R=Repudiation  I=Information Disclosure  D=Denial of Service  E=Elevation of Privilege" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="40" y="400" width="820" height="20" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
