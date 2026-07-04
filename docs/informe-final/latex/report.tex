@@ -252,6 +252,16 @@ Los jobs \texttt{lint} y \texttt{test} permanecen en \texttt{ci.yml}. Los escane
 SCA de filesystem) corren en cada push/PR; los pesados (ZAP DAST, Trivy \emph{image}) se limitan a \texttt{main}
 y a un \emph{schedule} semanal. Todos los jobs son no bloqueantes (\emph{allow\_failure-first}).
 
+\subsection{Evidencia: ejecución real en GitHub Actions}
+\begin{center}
+  \includegraphics[width=\linewidth]{images/pipeline-github.png}
+  \captionof{figure}{Run del workflow \texttt{security.yml} en GitHub Actions (push a \texttt{main}): estado \emph{Success} en 1m\,47s, con el grafo de jobs Secret Scan, SAST, SCA, Image Scan, DAST y DefectDojo Gate $\rightarrow$ DefectDojo Upload (este último \emph{skipped}: sin secreto configurado, comportamiento \emph{evidence-on-demand}).}
+\end{center}
+\begin{center}
+  \includegraphics[width=0.92\linewidth]{images/pipeline-artifacts.png}
+  \captionof{figure}{Artefactos generados por el pipeline: reportes de los escáneres (\texttt{image-scan-reports}, \texttt{sast-reports}, \texttt{sca-reports}, \texttt{secret-scan-reports}).}
+\end{center}
+
 \subsection{Script de configuración (\texttt{.github/workflows/security.yml})}
 Extracto representativo (archivo completo en el repositorio):
 
