@@ -119,7 +119,7 @@ Diagrama de flujo de datos con fronteras de confianza (\emph{trust boundaries}).
 las categorías STRIDE aplicables. Versión editable en draw.io: \texttt{docs/informe-final/stride-finsight.drawio}.
 
 \begin{center}
-  \includegraphics[width=\linewidth]{images/stride.png}
+  \includegraphics[width=\linewidth]{images/stride.pdf}
 \end{center}
 
 \noindent\footnotesize S=Spoofing \textbullet\ T=Tampering \textbullet\ R=Repudiation \textbullet\
@@ -246,7 +246,7 @@ priorizados en DefectDojo, doble barrera de secretos, y 4 amenazas STRIDE mitiga
 \section{Pipeline CI/CD completo}
 \subsection{Diagrama del pipeline}
 \begin{center}
-  \includegraphics[width=\linewidth]{images/pipeline.png}
+  \includegraphics[width=\linewidth]{images/pipeline.pdf}
 \end{center}
 Los jobs \texttt{lint} y \texttt{test} permanecen en \texttt{ci.yml}. Los escaneos ligeros (secret-scan, SAST,
 SCA de filesystem) corren en cada push/PR; los pesados (ZAP DAST, Trivy \emph{image}) se limitan a \texttt{main}
