@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [{ name = "FinSight Team" }]
+dependencies = []
 
 [tool.uv.workspace]
 members = ["backend", "frontend"]
