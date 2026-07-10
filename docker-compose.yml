@@ -2,6 +2,8 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    networks:
+      - finsight
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-finsight}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-finsight}
@@ -20,6 +22,8 @@ services:
     build:
       context: ./backend
     restart: unless-stopped
+    networks:
+      - finsight
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-finsight}:${POSTGRES_PASSWORD:-finsight}@db:5432/${POSTGRES_DB:-finsight}
       JWT_SECRET: ${JWT_SECRET:-change-me}
@@ -36,6 +40,8 @@ services:
     build:
       context: ./frontend
     restart: unless-stopped
+    networks:
+      - finsight
     environment:
       BACKEND_URL: http://web:8000
     ports:
@@ -50,6 +56,12 @@ services:
       - "8080:8080"
     depends_on:
       - db
+    networks:
+      - finsight
 
 volumes:
   db_data:
+
+networks:
+  finsight:
+    driver: bridge
