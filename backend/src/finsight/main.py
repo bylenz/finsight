@@ -12,6 +12,7 @@ from finsight.config import settings
 from finsight.dashboard.router import router as dashboard_router
 from finsight.expenses.router import router as expenses_router
 from finsight.exports.router import router as exports_router
+from finsight.insights.router import router as insights_router
 
 
 def _rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> Response:
@@ -50,6 +51,7 @@ def create_app() -> FastAPI:
     app.include_router(budgets_router)
     app.include_router(alerts_router)
     app.include_router(dashboard_router)
+    app.include_router(insights_router)
     app.include_router(exports_router)
     return app
 

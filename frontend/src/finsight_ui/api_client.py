@@ -233,6 +233,13 @@ class ApiClient:
         params = {"month": month} if month else None
         return self._request("GET", "/dashboard", params=params).json()
 
+    # ------------------------------------------------------------- insights
+
+    def get_insights(self, month: str | None = None) -> dict:
+        """Fetch AI-generated insights for a month (default: current month)."""
+        params = {"month": month} if month else None
+        return self._request("GET", "/insights", params=params).json()
+
     # ---------------------------------------------------------------- alerts
 
     def list_alerts(self) -> list[dict]:
