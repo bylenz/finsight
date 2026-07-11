@@ -94,6 +94,27 @@ def test_list_expenses_unwraps_items_and_drops_none_params():
     assert seen_params["limit"] == "50"
 
 
+def test_get_categories_returns_parsed_list():
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/categories"
+        return httpx.Response(
+            200,
+            json=[
+                {"id": 1, "name": "Food", "household_id": None},
+                {"id": 2, "name": "Bob Only", "household_id": 5},
+            ],
+        )
+
+    client = _client_with_transport(handler)
+    client.token = "t"
+    categories = client.get_categories()
+
+    assert categories == [
+        {"id": 1, "name": "Food", "household_id": None},
+        {"id": 2, "name": "Bob Only", "household_id": 5},
+    ]
+
+
 def test_get_csv_bytes_returns_raw_body():
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/export/csv"

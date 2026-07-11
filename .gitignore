@@ -60,3 +60,9 @@ reports/
 
 # coverage artifacts
 coverage.json
+
+# Tooling caches (local only)
+.atl/
+.serena/
+.tokensave/
+.playwright-mcp/

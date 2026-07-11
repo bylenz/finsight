@@ -6,6 +6,7 @@ from starlette.responses import JSONResponse, Response
 from finsight import __version__
 from finsight.auth.router import router as auth_router
 from finsight.budgets.router import alerts_router, budgets_router
+from finsight.categories.router import router as categories_router
 from finsight.common.ratelimit import limiter
 from finsight.config import settings
 from finsight.dashboard.router import router as dashboard_router
@@ -45,6 +46,7 @@ def create_app() -> FastAPI:
 
     app.include_router(auth_router)
     app.include_router(expenses_router)
+    app.include_router(categories_router)
     app.include_router(budgets_router)
     app.include_router(alerts_router)
     app.include_router(dashboard_router)
