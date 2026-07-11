@@ -28,6 +28,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-finsight}:${POSTGRES_PASSWORD:-finsight}@db:5432/${POSTGRES_DB:-finsight}
       JWT_SECRET: ${JWT_SECRET:-change-me}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-claude-haiku-4-5-20251001}
       BASE_CURRENCY: ${BASE_CURRENCY:-PEN}
       APP_ENV: ${APP_ENV:-development}
     ports:
