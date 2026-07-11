@@ -13,27 +13,23 @@ require_login()
 client = get_client()
 
 
-def _categories_from_dashboard() -> list[tuple[str, int | None]]:
+def _all_categories() -> list[tuple[str, int | None]]:
+    """Return [(label, category_id)] — "General" plus every available category."""
     options: list[tuple[str, int | None]] = [("General (sin categoría)", None)]
-    data = st.session_state.get("latest_dashboard")
-    if data is None:
-        try:
-            data = client.get_dashboard()
-            st.session_state["latest_dashboard"] = data
-        except ApiError:
-            return options
-    seen: set[int] = set()
-    for c in data.get("by_category") or []:
-        cid = c.get("category_id")
-        name = c.get("category_name")
-        if cid is None or cid in seen or not name:
+    try:
+        categories = client.get_categories()
+    except ApiError:
+        return options
+    for c in categories:
+        cid = c.get("id")
+        name = c.get("name")
+        if cid is None or not name:
             continue
-        seen.add(cid)
         options.append((name, cid))
     return options
 
 
-cat_options = _categories_from_dashboard()
+cat_options = _all_categories()
 cat_labels = [label for label, _ in cat_options]
 cat_id_by_label = dict(cat_options)
 cat_label_by_id: dict[int, str] = {cid: label for label, cid in cat_options if cid is not None}
