@@ -132,3 +132,44 @@ def test_export_csv_url_omits_none_params():
     url = client.export_csv_url(category_id=3)
     assert url == "http://test/export/csv?category_id=3"
     client.close()
+
+
+def test_get_insights_returns_parsed_dict():
+    seen_params: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/insights"
+        seen_params.update(dict(request.url.params))
+        return httpx.Response(
+            200,
+            json={
+                "month": "2026-07",
+                "currency": "PEN",
+                "ai_generated": True,
+                "summary": "Tu gasto se concentra en comida.",
+                "highlights": ["Reduce un 10% en Food."],
+            },
+        )
+
+    client = _client_with_transport(handler)
+    client.token = "t"
+    data = client.get_insights(month="2026-07")
+
+    assert data["ai_generated"] is True
+    assert data["summary"] == "Tu gasto se concentra en comida."
+    assert data["highlights"] == ["Reduce un 10% en Food."]
+    assert seen_params["month"] == "2026-07"
+
+
+def test_get_insights_omits_month_when_none():
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/insights"
+        assert "month" not in request.url.params
+        return httpx.Response(
+            200, json={"month": "2026-07", "ai_generated": False, "summary": "x", "highlights": []}
+        )
+
+    client = _client_with_transport(handler)
+    client.token = "t"
+    data = client.get_insights()
+    assert data["ai_generated"] is False
