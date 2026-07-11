@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from finsight.auth.models import User
 from finsight.categories.models import Category
 
 DEFAULT_CATEGORIES: tuple[tuple[str, str, str], ...] = (
@@ -33,3 +34,18 @@ async def seed_default_categories(session: AsyncSession) -> int:
         inserted += 1
     await session.flush()
     return inserted
+
+
+async def list_available_categories(session: AsyncSession, user: User) -> list[Category]:
+    """Return the caller's available categories — global defaults + their household's.
+
+    Mirrors ``insights.categorizer.load_available_categories`` scoping: global
+    (``household_id IS NULL``) plus the caller's own household, never another
+    household's categories.
+    """
+    from finsight.budgets.service import _resolve_user_household
+    from finsight.insights.categorizer import load_available_categories
+
+    await seed_default_categories(session)
+    household = await _resolve_user_household(session, user)
+    return await load_available_categories(session, household.id)

@@ -222,6 +222,11 @@ class ApiClient:
     def budget_status(self, budget_id: int) -> dict:
         return self._request("GET", f"/budgets/{budget_id}/status").json()
 
+    # ------------------------------------------------------------ categories
+
+    def get_categories(self) -> list[dict]:
+        return self._request("GET", "/categories").json()
+
     # ------------------------------------------------------------- dashboard
 
     def get_dashboard(self, month: str | None = None) -> dict:
